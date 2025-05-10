@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-SofaScore Access Script with Search Functionality
+SofaScore Search and Click Function
+This script searches for "Manchester United" on SofaScore and clicks the first result
 """
 
 import time
@@ -14,14 +15,14 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 
-def search_sofascore(search_term="Manchester United"):
+def search_and_click_first_result(search_term="Manchester United"):
     """
-    Function to search for a specific term on SofaScore
+    Function to search for a term on SofaScore and click the first result
     
     Args:
         search_term (str): The term to search for (default: "Manchester United")
     """
-    print(f"Starting SofaScore search for '{search_term}'...")
+    print(f"Starting SofaScore search for '{search_term}' and clicking first result...")
 
     # Setup Chrome options
     chrome_options = Options()
@@ -40,8 +41,7 @@ def search_sofascore(search_term="Manchester United"):
         print("Waiting for page to load...")
         wait = WebDriverWait(driver, 10)
         
-        # Find the search box
-        # Using the selector from the provided HTML snippet
+        # Find the search box using the selector from the provided HTML
         search_box = wait.until(EC.presence_of_element_located(
             (By.CSS_SELECTOR, "input.sc-23fa27a7-0.hJrmWL")
         ))
@@ -56,33 +56,31 @@ def search_sofascore(search_term="Manchester United"):
         search_box.clear()
         search_box.send_keys(search_term)
         
-        # Press Enter to submit the search
-        search_box.send_keys(Keys.RETURN)
+        # Wait for search results to appear
+        # Based on your HTML, the search results appear in a dropdown, not after page navigation
+        print("Waiting for search results dropdown...")
+        time.sleep(2)  # Short wait for the dropdown to appear
         
-        # Wait for search results to load
-        print("Waiting for search results...")
+        # Find the first <a> tag in the search results
+        # Using the structure from your HTML snippet
+        first_result_link = wait.until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, "div.beautiful-scrollbar__content a.sc-5bbe3e2c-0")
+        ))
+        
+        # Print information about what we're clicking
+        print(f"Found first result: {first_result_link.text}")
+        print(f"Clicking on the first search result (Manchester United team)...")
+        
+        # Click on the first result
+        first_result_link.click()
+        
+        # Wait for the team page to load
+        print("Waiting for team page to load...")
         time.sleep(3)
         
-        # Print the current URL (should be the search results page)
-        print(f"Search results URL: {driver.current_url}")
-        
-        # Print the title of the page
+        # Print confirmation
+        print(f"Successfully navigated to: {driver.current_url}")
         print(f"Page title: {driver.title}")
-        
-        # Optional: Extract some information from the search results
-        try:
-            # This is an example - you may need to adjust selectors based on the actual page structure
-            results = driver.find_elements(By.CSS_SELECTOR, ".search-result-item")
-            print(f"Found {len(results)} search results")
-            
-            # Print the first few results
-            for i, result in enumerate(results[:5], 1):
-                print(f"Result {i}: {result.text[:100]}...")
-                
-        except Exception as e:
-            print(f"Could not extract search results: {e}")
-        
-        print("Search completed successfully!")
         
         # Keep browser open until user presses Enter
         input("Press Enter to close the browser...")
@@ -101,8 +99,5 @@ def search_sofascore(search_term="Manchester United"):
 
 
 if __name__ == "__main__":
-    # Call the search function with default value "Manchester United"
-    search_sofascore()
-    
-    # Alternatively, you can specify a different search term:
-    # search_sofascore("Liverpool FC")
+    # Call the function to search and click the first result
+    search_and_click_first_result()
