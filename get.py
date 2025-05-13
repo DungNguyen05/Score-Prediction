@@ -1,28 +1,51 @@
 import requests
 
-url = "https://v3.football.api-sports.io/fixtures"
+API_KEY = "YOUR_API_KEY"
+TEAM_ID = 541  # Real Madrid ID in API-Football
 
+url = "https://v3.football.api-sports.io/fixtures"
 headers = {
-    "x-rapidapi-host": "v3.football.api-sports.io",
-    "x-rapidapi-key": "ae77e0ebaa6dcb82472e5f974aff1ce8"  # Replace with your real key
+    "x-rapidapi-key": "42941e9e63ae4f029b9a88377da23dec",
+    "x-rapidapi-host": "v3.football.api-sports.io"
 }
 
 params = {
-    "team": "529",       # FC Barcelona
-    "season": "2023",    # Season year
-    # "league": "140"    # Optional: La Liga (Spain), or leave out to get all competitions
+    "team": TEAM_ID,
+    "last": 10
 }
 
 response = requests.get(url, headers=headers, params=params)
 
 if response.status_code == 200:
     data = response.json()
-    for match in data['response']:
-        date = match['fixture']['date'][:10]
-        home = match['teams']['home']['name']
-        away = match['teams']['away']['name']
-        score_home = match['goals']['home']
-        score_away = match['goals']['away']
-        print(f"{date} - {home} {score_home} : {score_away} {away}")
+    for match in data["response"]:
+        fixture = match["fixture"]
+        teams = match["teams"]
+        goals = match["goals"]
+        stats = match.get("statistics", [])
+
+        date = fixture["date"][:10]
+        home = teams["home"]["name"]
+        away = teams["away"]["name"]
+        score_home = goals["home"]
+        score_away = goals["away"]
+
+        print(f"\n{date} - {home} {score_home}:{score_away} {away}")
+
+        # Fetch stats by fixture ID
+        fixture_id = fixture["id"]
+        stats_url = f"https://v3.football.api-sports.io/fixtures/statistics"
+        stats_params = {
+            "fixture": fixture_id
+        }
+        stats_res = requests.get(stats_url, headers=headers, params=stats_params)
+        if stats_res.status_code == 200:
+            stats_data = stats_res.json()["response"]
+            for team_stats in stats_data:
+                team_name = team_stats["team"]["name"]
+                corners = next((item["value"] for item in team_stats["statistics"] if item["type"] == "Corner Kicks"), "N/A")
+                print(f"{team_name} corners: {corners}")
+        else:
+            print("Stats unavailable for this match.")
 else:
-    print("Error:", response.status_code)
+    print("Failed to retrieve match data.")
