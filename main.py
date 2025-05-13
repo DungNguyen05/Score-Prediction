@@ -100,4 +100,4 @@ def search_and_click_first_result(search_term="Manchester United"):
 
 if __name__ == "__main__":
     # Call the function to search and click the first result
-    search_and_click_first_result()
+    search_and_click_first_result("real madrid")
