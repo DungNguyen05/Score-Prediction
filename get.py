@@ -1,51 +1,43 @@
 import requests
 
-API_KEY = "YOUR_API_KEY"
-TEAM_ID = 541  # Real Madrid ID in API-Football
+# Replace with your actual API key from football-data.org
+API_KEY = "42941e9e63ae4f029b9a88377da23dec"
 
-url = "https://v3.football.api-sports.io/fixtures"
+# Real Madrid's team ID on football-data.org
+TEAM_ID = 86
+
+# API endpoint
+url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches"
+
+# Request headers
 headers = {
-    "x-rapidapi-key": "42941e9e63ae4f029b9a88377da23dec",
-    "x-rapidapi-host": "v3.football.api-sports.io"
+    "X-Auth-Token": API_KEY
 }
 
+# Parameters: only finished matches, limit to last 10
 params = {
-    "team": TEAM_ID,
-    "last": 10
+    "status": "FINISHED",
+    "limit": 10,
+    "sort": "desc"  # Latest matches first
 }
 
+# Make request
 response = requests.get(url, headers=headers, params=params)
 
+# Handle response
 if response.status_code == 200:
     data = response.json()
-    for match in data["response"]:
-        fixture = match["fixture"]
-        teams = match["teams"]
-        goals = match["goals"]
-        stats = match.get("statistics", [])
-
-        date = fixture["date"][:10]
-        home = teams["home"]["name"]
-        away = teams["away"]["name"]
-        score_home = goals["home"]
-        score_away = goals["away"]
-
-        print(f"\n{date} - {home} {score_home}:{score_away} {away}")
-
-        # Fetch stats by fixture ID
-        fixture_id = fixture["id"]
-        stats_url = f"https://v3.football.api-sports.io/fixtures/statistics"
-        stats_params = {
-            "fixture": fixture_id
-        }
-        stats_res = requests.get(stats_url, headers=headers, params=stats_params)
-        if stats_res.status_code == 200:
-            stats_data = stats_res.json()["response"]
-            for team_stats in stats_data:
-                team_name = team_stats["team"]["name"]
-                corners = next((item["value"] for item in team_stats["statistics"] if item["type"] == "Corner Kicks"), "N/A")
-                print(f"{team_name} corners: {corners}")
-        else:
-            print("Stats unavailable for this match.")
+    matches = data.get("matches", [])
+    if matches:
+        print("Last 10 Real Madrid matches:")
+        for match in matches:
+            date = match['utcDate'][:10]
+            home = match['homeTeam']['name']
+            away = match['awayTeam']['name']
+            score_home = match['score']['fullTime']['home']
+            score_away = match['score']['fullTime']['away']
+            print(f"{date} - {home} {score_home} : {score_away} {away}")
+    else:
+        print("No finished matches found.")
 else:
-    print("Failed to retrieve match data.")
+    print(f"API Error {response.status_code}: {response.text}")
