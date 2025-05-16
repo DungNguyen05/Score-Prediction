@@ -6,5 +6,4 @@ HEADERS = {
 }
 
 # Model configuration
-HISTORY_MATCHES = 20  # Number of recent matches to consider for each team
-SEASONS_TO_ANALYZE = 2  # Number of seasons to look back
+MATCHES_TO_CONSIDER = 10  # Number of recent matches to analyze

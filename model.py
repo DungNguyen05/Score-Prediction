@@ -20,8 +20,8 @@ def predict_goals(team_a_stats, team_b_stats, is_team_a_home=True):
         team_b_exp_goals = (team_b_exp_goals * 0.7) + (team_b_stats['h2h_avg_goals_scored'] * 0.3)
     
     # Form adjustment (simple version)
-    team_a_form_score = sum([1 if r == 'W' else 0.5 if r == 'D' else 0 for r in team_a_stats['recent_form']]) / 5
-    team_b_form_score = sum([1 if r == 'W' else 0.5 if r == 'D' else 0 for r in team_b_stats['recent_form']]) / 5
+    team_a_form_score = sum([1 if r == 'W' else 0.5 if r == 'D' else 0 for r in team_a_stats['recent_form']]) / 5 if team_a_stats['recent_form'] else 0.5
+    team_b_form_score = sum([1 if r == 'W' else 0.5 if r == 'D' else 0 for r in team_b_stats['recent_form']]) / 5 if team_b_stats['recent_form'] else 0.5
     
     form_adjustment = (team_a_form_score - team_b_form_score) * 0.2
     team_a_exp_goals += form_adjustment
