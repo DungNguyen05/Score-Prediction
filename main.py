@@ -2,102 +2,81 @@
 # -*- coding: utf-8 -*-
 
 """
-SofaScore Search and Click Function
-This script searches for "Manchester United" on SofaScore and clicks the first result
+Soccer Match Score Predictor
+This script predicts the total goals in a soccer match between two teams
+using historical data from the football-data.org API
 """
 
-import time
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.keys import Keys
+import argparse
+import pandas as pd
+from model import predict_match
 
-def search_and_click_first_result(search_term="Manchester United"):
-    """
-    Function to search for a term on SofaScore and click the first result
+def format_probability_table(prob_table):
+    """Format the probability table for display"""
+    # Round to 2 decimal places and sort
+    formatted = prob_table.copy()
+    formatted['probability'] = formatted['probability'].round(2)
+    formatted = formatted.sort_values('total_goals')
     
-    Args:
-        search_term (str): The term to search for (default: "Manchester United")
-    """
-    print(f"Starting SofaScore search for '{search_term}' and clicking first result...")
+    # Format for display
+    return formatted.rename(columns={
+        'total_goals': 'Total Goals',
+        'probability': 'Probability (%)'
+    })
 
-    # Setup Chrome options
-    chrome_options = Options()
-    driver = None
+def main():
+    """Main function to run the prediction"""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Predict the score of a soccer match.')
+    parser.add_argument('team_a', type=str, help='Name of Team A')
+    parser.add_argument('team_b', type=str, help='Name of Team B')
+    parser.add_argument('--home', type=str, default=None, 
+                        help='Specify which team is playing at home (A or B). If not specified, Team A is assumed to be home.')
     
-    try:
-        # Initialize ChromeDriver
-        print("Setting up ChromeDriver...")
-        driver = webdriver.Chrome(options=chrome_options)
-        
-        # Access SofaScore website
-        print("Opening SofaScore.com...")
-        driver.get("https://www.sofascore.com/")
-        
-        # Wait for page to load
-        print("Waiting for page to load...")
-        wait = WebDriverWait(driver, 10)
-        
-        # Find the search box using the selector from the provided HTML
-        search_box = wait.until(EC.presence_of_element_located(
-            (By.CSS_SELECTOR, "input.sc-23fa27a7-0.hJrmWL")
-        ))
-        
-        # Alternative selectors if the above doesn't work
-        # search_box = wait.until(EC.presence_of_element_located((By.ID, "search-input")))
-        # search_box = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Search matches, competitions, teams, players, and more']")))
-        
-        print(f"Found search box, entering '{search_term}'...")
-        
-        # Clear any existing text and enter search term
-        search_box.clear()
-        search_box.send_keys(search_term)
-        
-        # Wait for search results to appear
-        # Based on your HTML, the search results appear in a dropdown, not after page navigation
-        print("Waiting for search results dropdown...")
-        time.sleep(2)  # Short wait for the dropdown to appear
-        
-        # Find the first <a> tag in the search results
-        # Using the structure from your HTML snippet
-        first_result_link = wait.until(EC.presence_of_element_located(
-            (By.CSS_SELECTOR, "div.beautiful-scrollbar__content a.sc-5bbe3e2c-0")
-        ))
-        
-        # Print information about what we're clicking
-        print(f"Found first result: {first_result_link.text}")
-        print(f"Clicking on the first search result (Manchester United team)...")
-        
-        # Click on the first result
-        first_result_link.click()
-        
-        # Wait for the team page to load
-        print("Waiting for team page to load...")
-        time.sleep(3)
-        
-        # Print confirmation
-        print(f"Successfully navigated to: {driver.current_url}")
-        print(f"Page title: {driver.title}")
-        
-        # Keep browser open until user presses Enter
-        input("Press Enter to close the browser...")
-        
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        
-    finally:
-        # Clean up - close the browser if it was opened
-        try:
-            if driver:
-                driver.quit()
-                print("Browser closed.")
-        except:
-            print("Could not close the browser (it might not have been opened)")
-
+    args = parser.parse_args()
+    
+    team_a = args.team_a
+    team_b = args.team_b
+    
+    # Determine which team is home
+    is_team_a_home = True
+    if args.home:
+        if args.home.upper() == 'B':
+            is_team_a_home = False
+    
+    home_team = team_a if is_team_a_home else team_b
+    away_team = team_b if is_team_a_home else team_a
+    
+    print(f"Predicting match: {home_team} (Home) vs {away_team} (Away)")
+    print("=" * 70)
+    print("Loading data and calculating predictions...")
+    
+    # Make prediction
+    prediction = predict_match(team_a, team_b, is_team_a_home)
+    
+    if not prediction:
+        print("Could not make a prediction. Please check team names and try again.")
+        return
+    
+    # Display results
+    print("\nMatch Prediction Results:")
+    print("=" * 70)
+    
+    team_a_name = prediction['team_a']['team_name']
+    team_b_name = prediction['team_b']['team_name']
+    
+    print(f"{team_a_name} vs {team_b_name}")
+    print(f"Expected goals: {prediction['team_a_expected_goals']:.2f} - {prediction['team_b_expected_goals']:.2f}")
+    print(f"Most likely total goals: {prediction['most_likely_total']}")
+    print("\nTotal Goals Probability Table:")
+    print("-" * 40)
+    
+    # Display the probability table
+    prob_table = format_probability_table(prediction['total_goals_probabilities'])
+    pd.set_option('display.max_rows', None)
+    print(prob_table.to_string(index=False))
+    
+    print("\nNote: The model uses historical data to calculate probabilities. Actual results may vary.")
 
 if __name__ == "__main__":
-    # Call the function to search and click the first result
-    search_and_click_first_result("real madrid")
+    main()
