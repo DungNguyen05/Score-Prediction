@@ -10,6 +10,7 @@ using historical data from the football-data.org API
 import argparse
 import pandas as pd
 from model import predict_match
+from config import HOME_TEAM, AWAY_TEAM
 
 def format_probability_table(prob_table):
     """Format the probability table for display"""
@@ -26,23 +27,19 @@ def format_probability_table(prob_table):
 
 def main():
     """Main function to run the prediction"""
-    # Parse command line arguments
+    # Parse command line arguments (optional override of config)
     parser = argparse.ArgumentParser(description='Predict the score of a soccer match.')
-    parser.add_argument('team_a', type=str, help='Name of Team A')
-    parser.add_argument('team_b', type=str, help='Name of Team B')
-    parser.add_argument('--home', type=str, default=None, 
-                        help='Specify which team is playing at home (A or B). If not specified, Team A is assumed to be home.')
+    parser.add_argument('--team_a', type=str, default=HOME_TEAM, help='Name of Team A (home team by default)')
+    parser.add_argument('--team_b', type=str, default=AWAY_TEAM, help='Name of Team B (away team by default)')
+    parser.add_argument('--swap', action='store_true', help='Swap home and away teams (default: Team A is home)')
     
     args = parser.parse_args()
     
     team_a = args.team_a
     team_b = args.team_b
     
-    # Determine which team is home
-    is_team_a_home = True
-    if args.home:
-        if args.home.upper() == 'B':
-            is_team_a_home = False
+    # Determine which team is home (Team A is home by default)
+    is_team_a_home = not args.swap
     
     home_team = team_a if is_team_a_home else team_b
     away_team = team_b if is_team_a_home else team_a
