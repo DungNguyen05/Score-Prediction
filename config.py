@@ -9,14 +9,9 @@ HEADERS = {
 MATCHES_TO_CONSIDER = 20  # Number of recent matches to analyze
 MAX_H2H_MATCHES = 10      # Maximum number of head-to-head matches to use
 
-# Data fetching optimization 
-FETCH_RECENT_MATCHES = True  # Whether to fetch recent team matches (set to False to skip and use H2H only)
-FETCH_H2H_MATCHES = True     # Whether to fetch head-to-head matches
-
-
 # Team configuration for prediction
-HOME_TEAM = "manchester city"  
-AWAY_TEAM = "crystal palace"   
+HOME_TEAM = "southampton"  
+AWAY_TEAM = "arsenal"   
 
 # Dictionary of common team IDs
 TEAM_IDS = {
@@ -40,6 +35,9 @@ TEAM_IDS = {
     "ajax": 678,
     "sevilla": 559,
     "porto": 503,
-    "crystal palace": 354
-
+    "crystal palace": 354,
+    "bournemouth": 79,
+    "wolves": 106,
+    "southampton": 340
 }
+

@@ -4,7 +4,7 @@
 """
 Soccer Match Score Predictor
 This script predicts the total goals in a soccer match between two teams
-using historical data from the football-data.org API
+using historical data from the football-data.org API with enhanced recency weighting
 """
 
 import pandas as pd
@@ -23,6 +23,18 @@ def format_probability_table(prob_table):
         'total_goals': 'Total Goals',
         'probability': 'Probability (%)'
     })
+
+def format_score_probability_table(prob_table):
+    """Format the score probability table for display"""
+    # Round to 2 decimal places
+    formatted = prob_table.copy()
+    formatted['probability'] = formatted['probability'].round(2)
+    
+    # Format for display
+    return formatted.rename(columns={
+        'score': 'Score',
+        'probability': 'Probability (%)'
+    })[['Score', 'Probability (%)']]
 
 def print_team_stats(team_stats, is_home=True):
     """Print detailed team statistics"""
@@ -71,9 +83,9 @@ def main():
     
     print(f"Predicting match: {team_a} (Home) vs {team_b} (Away)")
     print("=" * 70)
-    print(f"Using configuration from config.py")
+    print(f"Using enhanced prediction model with recency-weighted stats")
     print(f"To change teams, edit HOME_TEAM and AWAY_TEAM in config.py")
-    print(f"Looking for up to {MATCHES_TO_CONSIDER} historical matches between teams")
+    print(f"Analyzing up to {MATCHES_TO_CONSIDER} recent matches for each team")
     print("Loading data and calculating predictions...")
     
     # Make prediction
@@ -92,11 +104,21 @@ def main():
     
     print(f"{team_a_name} vs {team_b_name}")
     print(f"Expected goals: {prediction['team_a_expected_goals']:.2f} - {prediction['team_b_expected_goals']:.2f}")
+    print(f"Most likely score: {prediction['most_likely_score']}")
     print(f"Most likely total goals: {prediction['most_likely_total']}")
     
-    # Always show detailed statistics since we're only using config.py values
+    # Display detailed statistics
     print_team_stats(prediction['team_a'], True)
     print_team_stats(prediction['team_b'], False)
+    
+    print("\nMost Likely Scores:")
+    print("-" * 40)
+    
+    # Display the score probability table
+    if 'score_probabilities' in prediction:
+        score_table = format_score_probability_table(prediction['score_probabilities'].head(5))
+        pd.set_option('display.max_rows', None)
+        print(score_table.to_string(index=False))
     
     print("\nTotal Goals Probability Table:")
     print("-" * 40)
@@ -106,8 +128,12 @@ def main():
     pd.set_option('display.max_rows', None)
     print(prob_table.to_string(index=False))
     
-    print("\nNote: This prediction is based on the most recent matches data from football-data.org")
-    print("      To predict for different teams, edit the HOME_TEAM and AWAY_TEAM values in config.py")
+    print("\nNote: This prediction uses a recency-weighted model that prioritizes:")
+    print("      - Most recent matches (with exponential decay for older matches)")
+    print("      - Competitive matches over friendlies")
+    print("      - Head-to-head history (with stronger weight to recent encounters)")
+    print("      - Team form (with extra weight to most recent results)")
+    print("\n      To predict for different teams, edit the HOME_TEAM and AWAY_TEAM values in config.py")
 
 if __name__ == "__main__":
     main()

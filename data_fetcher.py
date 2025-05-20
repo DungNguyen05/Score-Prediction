@@ -7,13 +7,15 @@ from datetime import datetime, timedelta
 from config import (
     API_KEY, BASE_URL, HEADERS, 
     MATCHES_TO_CONSIDER, MAX_H2H_MATCHES,
-    FETCH_RECENT_MATCHES, FETCH_H2H_MATCHES,
     TEAM_IDS
 )
 
 # Create a cache directory if it doesn't exist
 CACHE_DIR = ".cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
+
+# Maximum age of cache in hours - reduced to ensure more up-to-date data
+CACHE_MAX_AGE = 12  # hours
 
 def get_team_id(team_name):
     """
@@ -35,7 +37,7 @@ def get_team_id(team_name):
     print("Available teams: " + ", ".join(sorted(TEAM_IDS.keys())))
     return None, None
 
-def get_cached_data(cache_key, max_age_hours=24):
+def get_cached_data(cache_key, max_age_hours=CACHE_MAX_AGE):
     """
     Get data from cache if available and fresh
     """
@@ -69,11 +71,6 @@ def get_recent_team_matches(team_id, team_name, limit=MATCHES_TO_CONSIDER):
     """
     Get the most recent matches for a specific team directly
     """
-    # Check if we should skip fetching recent matches
-    if not FETCH_RECENT_MATCHES:
-        print(f"Skipping recent matches for {team_name} (FETCH_RECENT_MATCHES=False)")
-        return []
-    
     # Try to get from cache first
     cache_key = f"team_matches_{team_id}"
     cached_data = get_cached_data(cache_key)
@@ -86,9 +83,12 @@ def get_recent_team_matches(team_id, team_name, limit=MATCHES_TO_CONSIDER):
     # Not in cache, fetch from API
     url = f"{BASE_URL}/teams/{team_id}/matches"
     
+    # Get more matches than we need so we can filter by competitiveness later
+    api_limit = min(limit * 2, 100)  # Double the limit but stay within API constraints
+    
     params = {
         "status": "FINISHED",
-        "limit": limit,
+        "limit": api_limit,
         "sort": "date",  # Get matches sorted by date
         "direction": "desc"  # Most recent first
     }
@@ -98,8 +98,14 @@ def get_recent_team_matches(team_id, team_name, limit=MATCHES_TO_CONSIDER):
         
         if response.status_code == 200:
             data = response.json()
-            matches = data.get("matches", [])
-            print(f"Found {len(matches)} recent matches for {team_name}")
+            all_matches = data.get("matches", [])
+            print(f"Found {len(all_matches)} recent matches for {team_name}")
+            
+            # Filter out friendlies and less important competitions
+            competitive_matches = filter_competitive_matches(all_matches)
+            
+            # Take only the needed number of matches
+            matches = competitive_matches[:limit]
             
             # Save to cache
             save_to_cache(cache_key, matches)
@@ -113,15 +119,56 @@ def get_recent_team_matches(team_id, team_name, limit=MATCHES_TO_CONSIDER):
         print(f"An error occurred: {e}")
         return []
 
+def filter_competitive_matches(matches, max_age_days=365):
+    """
+    Filter matches to include only competitive games and recent ones
+    """
+    # Define which competitions are considered more competitive/important
+    top_competition_ids = [
+        2001,  # Champions League
+        2002,  # Europa League
+        2019,  # Premier League
+        2014,  # La Liga
+        2021,  # Serie A
+        2015,  # Ligue 1
+        2002,  # Bundesliga
+        2000,  # World Cup
+        2018,  # European Championship
+    ]
+    
+    # Filter by date - only include matches within the last year
+    now = datetime.now()
+    date_threshold = now - timedelta(days=max_age_days)
+    
+    # Start with competitive matches from top leagues/competitions
+    competitive_matches = []
+    other_matches = []
+    
+    for match in matches:
+        match_date = datetime.strptime(match['utcDate'][:10], '%Y-%m-%d')
+        
+        # Skip if match is too old
+        if match_date < date_threshold:
+            continue
+            
+        # Prioritize matches from top competitions
+        competition_id = match.get('competition', {}).get('id')
+        
+        if competition_id in top_competition_ids:
+            competitive_matches.append(match)
+        else:
+            # Skip friendlies completely
+            competition_type = match.get('competition', {}).get('type')
+            if competition_type != 'FRIENDLY':
+                other_matches.append(match)
+    
+    # Combine the lists, prioritizing competitive matches
+    return competitive_matches + other_matches
+
 def get_head_to_head_matches(team_a_id, team_a_name, team_b_id, team_b_name, limit=MAX_H2H_MATCHES):
     """
     Get head-to-head matches between two teams
     """
-    # Check if we should skip fetching H2H matches
-    if not FETCH_H2H_MATCHES:
-        print(f"Skipping head-to-head matches (FETCH_H2H_MATCHES=False)")
-        return []
-    
     # Try to get from cache first
     cache_key = f"h2h_{min(team_a_id, team_b_id)}_{max(team_a_id, team_b_id)}"
     cached_data = get_cached_data(cache_key)
@@ -178,6 +225,10 @@ def extract_match_features(matches, team_id):
         # Date
         match_date = datetime.strptime(match['utcDate'][:10], '%Y-%m-%d')
         
+        # Calculate match recency (0 to 1, where 1 is most recent)
+        days_ago = (datetime.now() - match_date).days
+        recency_score = max(0, 1 - (days_ago / 365))  # Scale from 0 to 1 based on days ago (max 1 year)
+        
         # Goals scored and conceded
         goals_scored = home_score if is_home else away_score
         goals_conceded = away_score if is_home else home_score
@@ -185,6 +236,10 @@ def extract_match_features(matches, team_id):
         # Opponent
         opponent_id = match['awayTeam']['id'] if is_home else match['homeTeam']['id']
         opponent_name = match['awayTeam']['name'] if is_home else match['homeTeam']['name']
+        
+        # Competition importance (higher value for more important competitions)
+        competition_id = match.get('competition', {}).get('id', 0)
+        competition_importance = get_competition_importance(competition_id)
         
         # Result (win, draw, loss)
         if home_score > away_score:
@@ -198,6 +253,11 @@ def extract_match_features(matches, team_id):
         match_info = f"{match_date.strftime('%Y-%m-%d')} - "
         match_info += f"{match['homeTeam']['name']} {home_score}-{away_score} {match['awayTeam']['name']}"
         
+        # Add competition name if available
+        competition_name = match.get('competition', {}).get('name', '')
+        if competition_name:
+            match_info += f" ({competition_name})"
+        
         features.append({
             'match_id': match['id'],
             'date': match_date,
@@ -208,39 +268,44 @@ def extract_match_features(matches, team_id):
             'goals_conceded': goals_conceded,
             'total_goals': goals_scored + goals_conceded,
             'result': result,
-            'match_info': match_info
+            'match_info': match_info,
+            'recency_score': recency_score,
+            'competition_importance': competition_importance
         })
     
     return features
 
+def get_competition_importance(competition_id):
+    """
+    Assign an importance value to different competitions
+    Higher value means more important competition
+    """
+    # Define importance levels for different competitions
+    top_competitions = {
+        2001: 1.0,  # Champions League
+        2002: 0.9,  # Europa League
+        2019: 0.8,  # Premier League
+        2014: 0.8,  # La Liga
+        2021: 0.8,  # Serie A
+        2015: 0.75, # Ligue 1
+        2002: 0.8,  # Bundesliga
+        2000: 1.0,  # World Cup
+        2018: 0.9,  # European Championship
+    }
+    
+    # Return importance or default value for other competitions
+    return top_competitions.get(competition_id, 0.6)
+
 def get_team_stats(team_id, team_name):
     """
-    Calculate team statistics from recent match data
+    Calculate team statistics from recent match data with improved focus on recency
     """
     # Get recent matches for this team
     team_matches = get_recent_team_matches(team_id, team_name)
     
-    if not team_matches and FETCH_RECENT_MATCHES:
+    if not team_matches:
         print(f"No matches found for {team_name}")
         return None
-    
-    # If not fetching recent matches, create default stats
-    if not FETCH_RECENT_MATCHES:
-        return {
-            'team_id': team_id,
-            'team_name': team_name,
-            'num_matches': 0,
-            'avg_goals_scored': 0,
-            'avg_goals_conceded': 0,
-            'avg_total_goals': 0,
-            'home_avg_goals_scored': 0,
-            'home_avg_goals_conceded': 0,
-            'away_avg_goals_scored': 0,
-            'away_avg_goals_conceded': 0,
-            'win_rate': 0,
-            'recent_form': '',
-            'match_history': []
-        }
     
     # Extract features
     features = extract_match_features(team_matches, team_id)
@@ -252,19 +317,61 @@ def get_team_stats(team_id, team_name):
         print(f"No features extracted for {team_name}")
         return None
     
+    # Apply recency weighting to the data
+    df['weight'] = df['recency_score'] * df['competition_importance']
+    total_weight = df['weight'].sum()
+    
+    # Calculate weighted statistics
+    if total_weight > 0:
+        weighted_goals_scored = (df['goals_scored'] * df['weight']).sum() / total_weight
+        weighted_goals_conceded = (df['goals_conceded'] * df['weight']).sum() / total_weight
+        
+        # Home/away specific weighted stats
+        home_df = df[df['is_home']]
+        away_df = df[~df['is_home']]
+        
+        home_weight = home_df['weight'].sum() if not home_df.empty else 0
+        away_weight = away_df['weight'].sum() if not away_df.empty else 0
+        
+        home_weighted_goals_scored = (home_df['goals_scored'] * home_df['weight']).sum() / home_weight if home_weight > 0 else 0
+        home_weighted_goals_conceded = (home_df['goals_conceded'] * home_df['weight']).sum() / home_weight if home_weight > 0 else 0
+        away_weighted_goals_scored = (away_df['goals_scored'] * away_df['weight']).sum() / away_weight if away_weight > 0 else 0
+        away_weighted_goals_conceded = (away_df['goals_conceded'] * away_df['weight']).sum() / away_weight if away_weight > 0 else 0
+    else:
+        # Fallback to simple average if no weights
+        weighted_goals_scored = df['goals_scored'].mean()
+        weighted_goals_conceded = df['goals_conceded'].mean()
+        
+        home_df = df[df['is_home']]
+        away_df = df[~df['is_home']]
+        
+        home_weighted_goals_scored = home_df['goals_scored'].mean() if not home_df.empty else 0
+        home_weighted_goals_conceded = home_df['goals_conceded'].mean() if not home_df.empty else 0
+        away_weighted_goals_scored = away_df['goals_scored'].mean() if not away_df.empty else 0
+        away_weighted_goals_conceded = away_df['goals_conceded'].mean() if not away_df.empty else 0
+    
+    # Calculate weighted win rate
+    if total_weight > 0:
+        win_df = df[df['result'] == 'W']
+        weighted_win_rate = (win_df['weight'].sum() / total_weight) if not win_df.empty else 0
+    else:
+        weighted_win_rate = len(df[df['result'] == 'W']) / len(df) if len(df) > 0 else 0
+    
     # Calculate aggregated stats
     stats = {
         'team_id': team_id,
         'team_name': team_name,
         'num_matches': len(df),
-        'avg_goals_scored': df['goals_scored'].mean(),
+        'avg_goals_scored': df['goals_scored'].mean(),  # Keep simple average for reference
         'avg_goals_conceded': df['goals_conceded'].mean(),
         'avg_total_goals': df['total_goals'].mean(),
-        'home_avg_goals_scored': df[df['is_home']]['goals_scored'].mean() if not df[df['is_home']].empty else 0,
-        'home_avg_goals_conceded': df[df['is_home']]['goals_conceded'].mean() if not df[df['is_home']].empty else 0,
-        'away_avg_goals_scored': df[~df['is_home']]['goals_scored'].mean() if not df[~df['is_home']].empty else 0,
-        'away_avg_goals_conceded': df[~df['is_home']]['goals_conceded'].mean() if not df[~df['is_home']].empty else 0,
-        'win_rate': len(df[df['result'] == 'W']) / len(df) if len(df) > 0 else 0,
+        'weighted_goals_scored': weighted_goals_scored,  # New weighted metrics
+        'weighted_goals_conceded': weighted_goals_conceded,
+        'home_avg_goals_scored': home_weighted_goals_scored,
+        'home_avg_goals_conceded': home_weighted_goals_conceded,
+        'away_avg_goals_scored': away_weighted_goals_scored,
+        'away_avg_goals_conceded': away_weighted_goals_conceded,
+        'win_rate': weighted_win_rate,
         'recent_form': ''.join(df.sort_values('date', ascending=False)['result'].head(5).tolist()),
         'match_results': df.to_dict('records')
     }
@@ -293,31 +400,13 @@ def get_match_prediction_data(team_a, team_b):
     team_a_stats = get_team_stats(team_a_id, team_a_name)
     team_b_stats = get_team_stats(team_b_id, team_b_name)
     
-    if (FETCH_RECENT_MATCHES and (not team_a_stats or not team_b_stats)):
+    if not team_a_stats or not team_b_stats:
         return None
-    
-    # If not fetching recent matches but stats are None, create default stats
-    if not FETCH_RECENT_MATCHES:
-        if not team_a_stats:
-            team_a_stats = {
-                'team_id': team_a_id,
-                'team_name': team_a_name,
-                'num_matches': 0,
-                'match_history': []
-            }
-        if not team_b_stats:
-            team_b_stats = {
-                'team_id': team_b_id,
-                'team_name': team_b_name,
-                'num_matches': 0,
-                'match_history': []
-            }
     
     # Get head-to-head matches
     h2h_matches = get_head_to_head_matches(team_a_id, team_a_name, team_b_id, team_b_name)
     
-    # If no H2H matches and we were supposed to fetch them, this is an issue
-    if not h2h_matches and FETCH_H2H_MATCHES:
+    if not h2h_matches:
         print(f"No head-to-head matches found between {team_a_name} and {team_b_name}")
     
     if h2h_matches:
@@ -326,9 +415,22 @@ def get_match_prediction_data(team_a, team_b):
         h2h_df = pd.DataFrame(h2h_features)
         
         if not h2h_df.empty:
-            team_a_stats['h2h_avg_goals_scored'] = h2h_df['goals_scored'].mean()
-            team_a_stats['h2h_avg_goals_conceded'] = h2h_df['goals_conceded'].mean()
-            team_a_stats['h2h_win_rate'] = len(h2h_df[h2h_df['result'] == 'W']) / len(h2h_df)
+            # Apply recency weighting to H2H matches
+            h2h_df['weight'] = h2h_df['recency_score'] * h2h_df['competition_importance']
+            total_h2h_weight = h2h_df['weight'].sum()
+            
+            if total_h2h_weight > 0:
+                # Weighted H2H stats
+                team_a_stats['h2h_avg_goals_scored'] = (h2h_df['goals_scored'] * h2h_df['weight']).sum() / total_h2h_weight
+                team_a_stats['h2h_avg_goals_conceded'] = (h2h_df['goals_conceded'] * h2h_df['weight']).sum() / total_h2h_weight
+                
+                win_h2h_df = h2h_df[h2h_df['result'] == 'W']
+                team_a_stats['h2h_win_rate'] = (win_h2h_df['weight'].sum() / total_h2h_weight) if not win_h2h_df.empty else 0
+            else:
+                # Fallback to simple average if no weights
+                team_a_stats['h2h_avg_goals_scored'] = h2h_df['goals_scored'].mean()
+                team_a_stats['h2h_avg_goals_conceded'] = h2h_df['goals_conceded'].mean()
+                team_a_stats['h2h_win_rate'] = len(h2h_df[h2h_df['result'] == 'W']) / len(h2h_df)
             
             # Add a list of h2h match results for reference
             team_a_stats['h2h_history'] = h2h_df.sort_values('date', ascending=False)['match_info'].tolist()
