@@ -6,8 +6,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const teamBResults = document.getElementById('team-b-results');
     const teamASelection = document.getElementById('team-a-selection');
     const teamBSelection = document.getElementById('team-b-selection');
-    const teamAIdInput = document.getElementById('team_a_id');
-    const teamBIdInput = document.getElementById('team_b_id');
+    const teamAInput = document.getElementById('team_a_input');
+    const teamBInput = document.getElementById('team_b_input');
     const predictBtn = document.getElementById('predict-btn');
     
     // Timer for delayed search
@@ -65,12 +65,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Check which search results container this is in
             if (teamAResults.contains(teamResult)) {
-                selectTeam(teamId, teamName, teamAIdInput, teamASelection, teamASearch, teamAResults);
+                selectTeam(teamId, teamName, teamAInput, teamASelection, teamASearch, teamAResults, 'A');
             } else if (teamBResults.contains(teamResult)) {
-                selectTeam(teamId, teamName, teamBIdInput, teamBSelection, teamBSearch, teamBResults);
+                selectTeam(teamId, teamName, teamBInput, teamBSelection, teamBSearch, teamBResults, 'B');
             }
             
-            // Enable the predict button if both teams are selected
+            // Enable the predict button if both teams have values
             checkEnablePredictButton();
         }
     });
@@ -89,8 +89,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Function to select a team
-    function selectTeam(teamId, teamName, idInput, selectionContainer, searchInput, resultsContainer) {
-        idInput.value = teamId;
+    function selectTeam(teamId, teamName, inputField, selectionContainer, searchInput, resultsContainer, teamLetter) {
+        inputField.value = teamId;
         selectionContainer.innerHTML = `
             <div class="team-selection">
                 <div class="d-flex justify-content-between align-items-center">
@@ -107,18 +107,98 @@ document.addEventListener('DOMContentLoaded', function() {
         const removeBtn = selectionContainer.querySelector('.btn-close');
         if (removeBtn) {
             removeBtn.addEventListener('click', function() {
-                idInput.value = '';
+                inputField.value = '';
                 selectionContainer.innerHTML = '';
                 checkEnablePredictButton();
             });
         }
     }
     
+    // Listen for changes to the direct input fields
+    teamAInput.addEventListener('input', function() {
+        checkEnablePredictButton();
+    });
+    
+    teamBInput.addEventListener('input', function() {
+        checkEnablePredictButton();
+    });
+    
     // Function to check if predict button should be enabled
     function checkEnablePredictButton() {
-        const teamASelected = teamAIdInput.value !== '';
-        const teamBSelected = teamBIdInput.value !== '';
+        const teamAHasValue = teamAInput.value.trim() !== '';
+        const teamBHasValue = teamBInput.value.trim() !== '';
         
-        predictBtn.disabled = !(teamASelected && teamBSelected);
+        predictBtn.disabled = !(teamAHasValue && teamBHasValue);
     }
+    
+    // Initialize button state
+    checkEnablePredictButton();
+    
+    // Initialize the goal threshold input
+    const goalThresholdInput = document.getElementById('goal_threshold');
+    if (goalThresholdInput) {
+        // Set default step to 0.5
+        goalThresholdInput.step = "0.5";
+        
+        // Add event to validate input
+        goalThresholdInput.addEventListener('input', function() {
+            validateGoalThreshold(this);
+        });
+    }
+    
+    // Function to validate goal threshold
+    function validateGoalThreshold(input) {
+        let value = input.value.trim();
+        
+        // Allow empty values
+        if (value === '') {
+            return;
+        }
+        
+        // Convert to number
+        let numValue = parseFloat(value);
+        
+        // Check if it's a valid number
+        if (isNaN(numValue)) {
+            input.value = '';
+            return;
+        }
+        
+        // Ensure it's not negative
+        if (numValue < 0) {
+            input.value = '0';
+        }
+        
+        // If it's not a multiple of 0.5, round to nearest 0.5
+        if (numValue % 0.5 !== 0) {
+            input.value = (Math.round(numValue * 2) / 2).toFixed(1);
+        }
+    }
+    
+    // Add nice animation to predict button
+    if (predictBtn) {
+        predictBtn.addEventListener('mouseover', function() {
+            this.classList.add('shadow-lg');
+        });
+        
+        predictBtn.addEventListener('mouseout', function() {
+            this.classList.remove('shadow-lg');
+        });
+        
+        predictBtn.addEventListener('click', function() {
+            if (!this.disabled) {
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+                this.disabled = true;
+                
+                // Submit the form
+                document.getElementById('prediction-form').submit();
+            }
+        });
+    }
+    
+    // Add tooltips for better UX
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
 });

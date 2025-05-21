@@ -118,6 +118,58 @@ def calculate_total_goals_probabilities(team_a_exp_goals, team_b_exp_goals, max_
     
     return prob_df
 
+def calculate_over_under_probability(total_goals_df, threshold):
+    """
+    Calculate the probability of total goals being over or under a given threshold
+    
+    Args:
+        total_goals_df: DataFrame with total_goals and probability columns
+        threshold: The number of goals to calculate over/under probabilities for
+    
+    Returns:
+        Dictionary with over and under probabilities as percentages
+    """
+    # Make sure threshold is a float for comparison
+    threshold = float(threshold)
+    
+    # Extract data
+    total_goals = total_goals_df['total_goals'].values
+    probabilities = total_goals_df['probability'].values / 100  # Convert back to 0-1 scale
+    
+    # Calculate over/under probabilities
+    over_prob = 0
+    under_prob = 0
+    equal_prob = 0
+    
+    for goals, prob in zip(total_goals, probabilities):
+        if goals > threshold:
+            over_prob += prob
+        elif goals < threshold:
+            under_prob += prob
+        else:
+            equal_prob += prob
+    
+    # If threshold is a whole number, the "equal" probability should be included in both over and under
+    # using standard sports betting convention for over/under where the exact threshold value is a push
+    if threshold == int(threshold):
+        # For a whole number threshold, adjust to follow betting convention
+        over_prob_adj = over_prob
+        under_prob_adj = under_prob
+        result = {
+            'over': over_prob_adj * 100,
+            'under': under_prob_adj * 100,
+            'push': equal_prob * 100
+        }
+    else:
+        # For a decimal threshold, equal is not possible
+        result = {
+            'over': over_prob * 100,
+            'under': (under_prob + equal_prob) * 100,
+            'push': 0
+        }
+    
+    return result
+
 def calculate_score_probabilities(team_a_exp_goals, team_b_exp_goals, max_goals=5):
     """
     Calculate probability distribution for specific scores
@@ -145,9 +197,9 @@ def calculate_score_probabilities(team_a_exp_goals, team_b_exp_goals, max_goals=
     # Return top 10 most likely scores
     return prob_df.head(10)
 
-def predict_match(team_a_id, team_b_id, is_neutral_venue=False):
+def predict_match(team_a_id, team_b_id, is_neutral_venue=False, goal_threshold=None):
     """
-    Main prediction function
+    Main prediction function with added over/under threshold
     """
     from data_fetcher import get_match_prediction_data, get_team_name
     
@@ -178,6 +230,16 @@ def predict_match(team_a_id, team_b_id, is_neutral_venue=False):
     # Calculate score probabilities for most likely scores
     score_probabilities = calculate_score_probabilities(team_a_exp_goals, team_b_exp_goals)
     
+    # Add over/under calculation if threshold provided
+    over_under_result = None
+    if goal_threshold is not None:
+        try:
+            goal_threshold = float(goal_threshold)
+            over_under_result = calculate_over_under_probability(prob_table, goal_threshold)
+            print(f"Over/Under {goal_threshold} goals - Over: {over_under_result['over']:.2f}%, Under: {over_under_result['under']:.2f}%")
+        except (ValueError, TypeError) as e:
+            print(f"Error calculating over/under: {e}")
+    
     return {
         'team_a': team_a_stats,
         'team_b': team_b_stats,
@@ -187,5 +249,7 @@ def predict_match(team_a_id, team_b_id, is_neutral_venue=False):
         'score_probabilities': score_probabilities,
         'most_likely_total': prob_table.loc[prob_table['probability'].idxmax(), 'total_goals'],
         'most_likely_score': score_probabilities.iloc[0]['score'] if not score_probabilities.empty else "Unknown",
-        'is_neutral_venue': is_neutral_venue
+        'is_neutral_venue': is_neutral_venue,
+        'over_under_result': over_under_result,
+        'goal_threshold': goal_threshold
     }

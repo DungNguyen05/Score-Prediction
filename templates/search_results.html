@@ -1,22 +1,26 @@
 {% if results %}
-    <div class="list-group mt-2">
+    <div class="list-group mt-2 rounded-3 shadow-sm">
         {% for team in results %}
             <button type="button" class="list-group-item list-group-item-action team-result" 
                     data-team-id="{{ team.id }}" data-team-name="{{ team.name }}">
                 <div class="d-flex align-items-center">
                     {% if team.logo %}
-                    <img src="{{ team.logo }}" alt="{{ team.name }} logo" height="24" class="me-2">
+                    <img src="{{ team.logo }}" alt="{{ team.name }} logo" height="32" class="me-3 rounded-circle">
+                    {% else %}
+                    <div class="team-icon me-3 d-flex align-items-center justify-content-center">
+                        <i class="fas fa-futbol"></i>
+                    </div>
                     {% endif %}
                     <div>
-                        <div>{{ team.name }}</div>
-                        <small class="text-muted">{{ team.country }}</small>
+                        <div class="fw-bold">{{ team.name }}</div>
+                        <small class="text-muted">{{ team.country }} <span class="badge bg-light text-dark">ID: {{ team.id }}</span></small>
                     </div>
                 </div>
             </button>
         {% endfor %}
     </div>
 {% elif query and query|length >= 3 %}
-    <div class="alert alert-warning mt-2">
-        No teams found matching "{{ query }}".
+    <div class="alert alert-warning mt-2 rounded-3 shadow-sm">
+        <i class="fas fa-exclamation-triangle me-2"></i> No teams found matching "{{ query }}".
     </div>
 {% endif %}

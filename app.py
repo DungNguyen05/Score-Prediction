@@ -1,15 +1,17 @@
-from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, Form, HTTPException, Depends
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import uvicorn
-from typing import Optional
+from typing import Optional, Union
 import pandas as pd
 import os
+import re
 
 # Import our prediction model
 from model import predict_match
 from data_fetcher import get_team_name, get_cached_data, save_to_cache
+from find_team import search_teams
 
 app = FastAPI(title="Soccer Match Score Predictor")
 
@@ -30,24 +32,53 @@ async def home(request: Request):
     """Render the home page with the prediction form"""
     return templates.TemplateResponse("index.html", {"request": request})
 
+def validate_team_input(team_input: str) -> int:
+    """
+    Validate and convert team input (name or ID) to team ID
+    
+    Returns:
+        int: The team ID
+    Raises:
+        ValueError: If the input can't be converted to a valid team ID
+    """
+    # Check if it's directly a team ID
+    if team_input.isdigit():
+        return int(team_input)
+    
+    # Search for the team by name
+    teams = search_teams(team_input)
+    if teams:
+        return teams[0]['id']
+    
+    # If we get here, the input is neither a valid ID nor a found team name
+    raise ValueError(f"Could not find team ID for: {team_input}")
+
 @app.post("/predict", response_class=HTMLResponse)
 async def predict(
     request: Request,
-    team_a_id: int = Form(...),
-    team_b_id: int = Form(...),
-    is_neutral_venue: bool = Form(False)
+    team_a_input: str = Form(...),
+    team_b_input: str = Form(...),
+    is_neutral_venue: bool = Form(False),
+    goal_threshold: Optional[float] = Form(None)
 ):
     """Process prediction request and display results"""
     try:
+        # Convert team inputs to IDs
+        try:
+            team_a_id = validate_team_input(team_a_input)
+            team_b_id = validate_team_input(team_b_input)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        
         # Get team names for display
         team_a_name = get_team_name(team_a_id)
         team_b_name = get_team_name(team_b_id)
         
-        # Make prediction
-        prediction = predict_match(team_a_id, team_b_id, is_neutral_venue)
+        # Make prediction, including the over/under threshold if provided
+        prediction = predict_match(team_a_id, team_b_id, is_neutral_venue, goal_threshold)
         
         if not prediction:
-            raise HTTPException(status_code=404, detail="Could not make prediction. Please check team IDs.")
+            raise HTTPException(status_code=404, detail="Could not make prediction. Please check team inputs.")
             
         # Format probability tables for display
         total_goals_table = format_probability_table(prediction['total_goals_probabilities'])
@@ -62,6 +93,9 @@ async def predict(
             team_a_venue = "Home"
             team_b_venue = "Away"
             match_venue = "Standard Venue"
+        
+        # Prepare over/under result for display
+        over_under_result = prediction.get('over_under_result')
         
         return templates.TemplateResponse(
             "prediction.html", 
@@ -82,7 +116,9 @@ async def predict(
                 "team_a_stats": prediction['team_a'],
                 "team_b_stats": prediction['team_b'],
                 "total_goals_table": total_goals_table,
-                "score_table": score_table
+                "score_table": score_table,
+                "goal_threshold": prediction.get('goal_threshold'),
+                "over_under_result": over_under_result
             }
         )
     except Exception as e:
@@ -104,7 +140,6 @@ async def search_team(request: Request, query: Optional[str] = None):
         
         # If no results or no cache, search via API
         if not results:
-            from find_team import search_teams
             results = search_teams(query)
             
             # Update cache with new results

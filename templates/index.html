@@ -6,70 +6,101 @@
     <title>Soccer Match Score Predictor</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
-    <div class="container mt-5">
+<body class="bg-light">
+    <div class="container mt-4 mb-5">
         <div class="row">
-            <div class="col-md-8 offset-md-2">
-                <div class="card shadow">
-                    <div class="card-header bg-primary text-white">
-                        <h2 class="text-center">Soccer Match Score Predictor</h2>
+            <div class="col-lg-8 offset-lg-2">
+                <div class="card shadow-lg border-0 rounded-4">
+                    <div class="card-header bg-gradient text-white py-3 rounded-top-4">
+                        <h2 class="text-center mb-0">
+                            <i class="fas fa-futbol me-2"></i>Soccer Match Score Predictor
+                        </h2>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-4">
                         <form action="/predict" method="post" id="prediction-form">
                             <div class="row mb-4">
                                 <div class="col-md-5">
-                                    <label for="team-a-search" class="form-label">Team A</label>
-                                    <div class="input-group">
+                                    <div class="form-floating mb-3">
                                         <input type="text" class="form-control" id="team-a-search" placeholder="Search for team...">
-                                        <input type="hidden" name="team_a_id" id="team_a_id" required>
+                                        <label for="team-a-search">Team A (Search)</label>
                                     </div>
+                                    
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" name="team_a_input" id="team_a_input" placeholder="Team A ID or Name" required>
+                                        <label for="team_a_input">Team A (ID or Name)</label>
+                                    </div>
+                                    
                                     <div id="team-a-results" class="search-results"></div>
                                     <div id="team-a-selection" class="mt-2"></div>
                                 </div>
                                 
                                 <div class="col-md-2 d-flex align-items-center justify-content-center">
-                                    <span class="fs-3 fw-bold">VS</span>
+                                    <span class="fs-1 fw-bold text-gradient">VS</span>
                                 </div>
                                 
                                 <div class="col-md-5">
-                                    <label for="team-b-search" class="form-label">Team B</label>
-                                    <div class="input-group">
+                                    <div class="form-floating mb-3">
                                         <input type="text" class="form-control" id="team-b-search" placeholder="Search for team...">
-                                        <input type="hidden" name="team_b_id" id="team_b_id" required>
+                                        <label for="team-b-search">Team B (Search)</label>
                                     </div>
+                                    
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" name="team_b_input" id="team_b_input" placeholder="Team B ID or Name" required>
+                                        <label for="team_b_input">Team B (ID or Name)</label>
+                                    </div>
+                                    
                                     <div id="team-b-results" class="search-results"></div>
                                     <div id="team-b-selection" class="mt-2"></div>
                                 </div>
                             </div>
                             
                             <div class="row mb-4">
-                                <div class="col-md-12">
-                                    <div class="form-check">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="is_neutral_venue" name="is_neutral_venue">
                                         <label class="form-check-label" for="is_neutral_venue">
-                                            Neutral Venue Match
+                                            <i class="fas fa-map-marker-alt me-1"></i> Neutral Venue Match
                                         </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="number" class="form-control" name="goal_threshold" id="goal_threshold" placeholder="Goals Threshold" step="0.5" min="0">
+                                        <label for="goal_threshold">Over/Under Goals Threshold</label>
                                     </div>
                                 </div>
                             </div>
                             
                             <div class="row">
                                 <div class="col-md-12 text-center">
-                                    <button type="submit" class="btn btn-primary" id="predict-btn" disabled>Predict Match</button>
+                                    <button type="submit" class="btn btn-primary btn-lg px-5" id="predict-btn">
+                                        <i class="fas fa-calculator me-2"></i>Predict Match
+                                    </button>
                                 </div>
                             </div>
                         </form>
                         
                         <div class="mt-4">
-                            <div class="alert alert-info">
-                                <h5>Instructions:</h5>
-                                <ol>
-                                    <li>Search and select Team A (will play at home unless neutral venue is selected)</li>
-                                    <li>Search and select Team B (will play away unless neutral venue is selected)</li>
-                                    <li>Check "Neutral Venue Match" if the match will be played at a neutral venue</li>
-                                    <li>Click "Predict Match" to see the prediction results</li>
-                                </ol>
+                            <div class="alert alert-info border-0 shadow-sm">
+                                <h5><i class="fas fa-info-circle me-2"></i>Instructions:</h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <ol class="mb-0">
+                                            <li>Search for teams using the search boxes, or</li>
+                                            <li>Directly enter team IDs or names in the input fields</li>
+                                            <li>Check "Neutral Venue Match" for matches at neutral venues</li>
+                                        </ol>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <ol start="4" class="mb-0">
+                                            <li>Enter a number in "Over/Under Goals Threshold" to predict the probability of goals being over or under that value</li>
+                                            <li>Click "Predict Match" to see the results</li>
+                                        </ol>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
