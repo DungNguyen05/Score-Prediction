@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Prediction: {{ team_a_name }} vs {{ team_b_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <a href="/" class="btn btn-secondary mb-3">← Back to Predictor</a>
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h2 class="text-center">Match Prediction Results</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-4">
+                            <div class="col-md-12 text-center">
+                                <h3>
+                                    {% if is_neutral_venue %}
+                                    {{ team_a_name }} vs {{ team_b_name }}
+                                    <span class="badge bg-info">Neutral Venue</span>
+                                    {% else %}
+                                    {{ team_a_name }} (Home) vs {{ team_b_name }} (Away)
+                                    {% endif %}
+                                </h3>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6 offset-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <h4>Expected Goals</h4>
+                                        <div class="d-flex justify-content-center align-items-center">
+                                            <div class="team-score">
+                                                <span class="team-name">{{ team_a_name }}</span>
+                                                <div class="score">{{ "%.2f"|format(team_a_expected_goals) }}</div>
+                                            </div>
+                                            <div class="vs-divider">-</div>
+                                            <div class="team-score">
+                                                <span class="team-name">{{ team_b_name }}</span>
+                                                <div class="score">{{ "%.2f"|format(team_b_expected_goals) }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header bg-success text-white">
+                                        <h5 class="mb-0">Most Likely Score</h5>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h2 class="display-4">{{ most_likely_score }}</h2>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-header bg-info text-white">
+                                        <h5 class="mb-0">Most Likely Total Goals</h5>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h2 class="display-4">{{ most_likely_total }}</h2>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card mb-4">
+                                    <div class="card-header bg-primary text-white">
+                                        <h5 class="mb-0">Most Likely Scores</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Score</th>
+                                                        <th>Probability (%)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for score in score_table %}
+                                                    <tr>
+                                                        <td>{{ score.score }}</td>
+                                                        <td>{{ "%.2f"|format(score.probability) }}%</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="card mb-4">
+                                    <div class="card-header bg-primary text-white">
+                                        <h5 class="mb-0">Total Goals Probability</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Total Goals</th>
+                                                        <th>Probability (%)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for goal in total_goals_table %}
+                                                    <tr>
+                                                        <td>{{ goal.total_goals }}</td>
+                                                        <td>{{ "%.2f"|format(goal.probability) }}%</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card mb-4">
+                                    <div class="card-header bg-secondary text-white">
+                                        <h5 class="mb-0">{{ team_a_name }} ({{ team_a_venue }}) Statistics</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group">
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                Recent Form
+                                                <span class="badge bg-primary">{{ team_a_stats.recent_form }}</span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                Win Rate
+                                                <span>{{ "%.2f"|format(team_a_stats.win_rate) }}</span>
+                                            </li>
+                                            {% if is_neutral_venue %}
+                                                {% if team_a_stats.neutral_avg_goals_scored > 0 %}
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Neutral Venue Goals Scored
+                                                    <span>{{ "%.2f"|format(team_a_stats.neutral_avg_goals_scored) }}</span>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Neutral Venue Goals Conceded
+                                                    <span>{{ "%.2f"|format(team_a_stats.neutral_avg_goals_conceded) }}</span>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Neutral Venue Matches
+                                                    <span>{{ team_a_stats.num_neutral_matches }}</span>
+                                                </li>
+                                                {% else %}
+                                                <li class="list-group-item">
+                                                    No neutral venue statistics available. Using blended home/away stats.
+                                                </li>
+                                                {% endif %}
+                                            {% else %}
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Home Goals Scored
+                                                    <span>{{ "%.2f"|format(team_a_stats.home_avg_goals_scored) }}</span>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Home Goals Conceded
+                                                    <span>{{ "%.2f"|format(team_a_stats.home_avg_goals_conceded) }}</span>
+                                                </li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="card mb-4">
+                                    <div class="card-header bg-secondary text-white">
+                                        <h5 class="mb-0">{{ team_b_name }} ({{ team_b_venue }}) Statistics</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group">
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                Recent Form
+                                                <span class="badge bg-primary">{{ team_b_stats.recent_form }}</span>
+                                            </li>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                Win Rate
+                                                <span>{{ "%.2f"|format(team_b_stats.win_rate) }}</span>
+                                            </li>
+                                            {% if is_neutral_venue %}
+                                                {% if team_b_stats.neutral_avg_goals_scored > 0 %}
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Neutral Venue Goals Scored
+                                                    <span>{{ "%.2f"|format(team_b_stats.neutral_avg_goals_scored) }}</span>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Neutral Venue Goals Conceded
+                                                    <span>{{ "%.2f"|format(team_b_stats.neutral_avg_goals_conceded) }}</span>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Neutral Venue Matches
+                                                    <span>{{ team_b_stats.num_neutral_matches }}</span>
+                                                </li>
+                                                {% else %}
+                                                <li class="list-group-item">
+                                                    No neutral venue statistics available. Using blended home/away stats.
+                                                </li>
+                                                {% endif %}
+                                            {% else %}
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Away Goals Scored
+                                                    <span>{{ "%.2f"|format(team_b_stats.away_avg_goals_scored) }}</span>
+                                                </li>
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Away Goals Conceded
+                                                    <span>{{ "%.2f"|format(team_b_stats.away_avg_goals_conceded) }}</span>
+                                                </li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="card mb-4">
+                                    <div class="card-header bg-dark text-white">
+                                        <h5 class="mb-0">Head-to-Head History</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        {% if 'h2h_history' in team_a_stats and team_a_stats.h2h_history %}
+                                            <ul class="list-group">
+                                                {% for match in team_a_stats.h2h_history[:5] %}
+                                                    <li class="list-group-item">{{ match }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                            <div class="mt-3">
+                                                <h6>Head-to-Head Stats</h6>
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <ul class="list-group">
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                {{ team_a_name }} H2H Win Rate
+                                                                <span>{{ "%.2f"|format(team_a_stats.h2h_win_rate) }}</span>
+                                                            </li>
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                {{ team_a_name }} H2H Goals Scored
+                                                                <span>{{ "%.2f"|format(team_a_stats.h2h_avg_goals_scored) }}</span>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <ul class="list-group">
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                {{ team_b_name }} H2H Win Rate
+                                                                <span>{{ "%.2f"|format(team_b_stats.h2h_win_rate) }}</span>
+                                                            </li>
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                {{ team_b_name }} H2H Goals Scored
+                                                                <span>{{ "%.2f"|format(team_b_stats.h2h_avg_goals_scored) }}</span>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <div class="alert alert-warning">
+                                                No head-to-head history found between these teams.
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

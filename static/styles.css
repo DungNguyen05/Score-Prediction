@@ -1,0 +1,83 @@
+/* Custom styles for Soccer Prediction App */
+
+body {
+    background-color: #f8f9fa;
+}
+
+.search-results {
+    max-height: 300px;
+    overflow-y: auto;
+    position: absolute;
+    width: 100%;
+    z-index: 1000;
+    background-color: white;
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.team-selection {
+    padding: 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+}
+
+.team-score {
+    text-align: center;
+    padding: 0 20px;
+}
+
+.team-name {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.score {
+    font-size: 2.5rem;
+    font-weight: bold;
+}
+
+.vs-divider {
+    font-size: 2rem;
+    font-weight: bold;
+    padding: 0 15px;
+}
+
+/* Badge styles for match results */
+.badge {
+    font-size: 1rem;
+    font-family: monospace;
+    letter-spacing: 2px;
+}
+
+/* Specific style for forms */
+.card {
+    border: none;
+    border-radius: 10px;
+}
+
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9;
+    border-color: #0062cc;
+}
+
+/* Alternating row colors in tables */
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Make the most likely score and total goals stand out */
+.display-4 {
+    font-weight: bold;
+    color: #007bff;
+}

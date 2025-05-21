@@ -1,16 +1,17 @@
-# Soccer Match Score Predictor
+# Soccer Match Score Predictor (Enhanced)
 
-This program predicts the total goals in a soccer match between two teams using historical data from the football-data.org API and a statistical Poisson model.
+This program predicts the total goals in a soccer match between two teams using historical data from the football-data.org API and a statistical Poisson model. The enhanced version supports team IDs directly and includes neutral venue predictions.
 
-## Features
+## New Features
 
-- Fetches the most recent match data for both teams
-- Analyzes head-to-head history between the teams
-- Considers home/away performance
-- Takes into account recent form
-- Provides probability distribution for total goals in the match
-- **Optimized data fetching with caching**
-- **Configurable data sources**
+- **Direct team ID usage** instead of team names
+- **Neutral venue support** for matches with no home advantage
+- Enhanced prediction model incorporating:
+  - Neutral venue historical data when available
+  - Head-to-head statistics at neutral venues
+  - Adjusted form weighting for neutral matches
+- Optimized data fetching with better caching
+- Improved team search utility
 
 ## Prerequisites
 
@@ -32,8 +33,12 @@ Edit the `config.py` file to customize the prediction:
 
 ### Team Settings
 ```python
-HOME_TEAM = "real madrid"  # The home team for the match to predict
-AWAY_TEAM = "barcelona"    # The away team for the match to predict
+# Team configuration (using team IDs directly)
+HOME_TEAM_ID = 340  # Southampton
+AWAY_TEAM_ID = 57   # Arsenal
+
+# Match venue setting
+IS_NEUTRAL_VENUE = False  # Set to True for matches at neutral venues
 ```
 
 ### Data Fetching Optimization
@@ -41,27 +46,18 @@ AWAY_TEAM = "barcelona"    # The away team for the match to predict
 # Model configuration
 MATCHES_TO_CONSIDER = 20   # Number of recent matches to analyze
 MAX_H2H_MATCHES = 10       # Maximum number of head-to-head matches to use
-
-# Data fetching optimization 
-FETCH_RECENT_MATCHES = True  # Whether to fetch recent team matches (set to False to skip and use H2H only)
-FETCH_H2H_MATCHES = True     # Whether to fetch head-to-head matches
+CACHE_MAX_AGE = 12         # Hours before cache expires
 ```
 
-### Optimization Options
+## Finding Team IDs
 
-By configuring these options, you can control exactly which data is fetched:
+To find the ID for a team:
 
-- **Focus on head-to-head matches only**: Set `FETCH_RECENT_MATCHES = False` and `FETCH_H2H_MATCHES = True` 
-  - This will only analyze direct match history between the two teams
-  - Useful for derby matches or traditional rivalries where past meetings are most relevant
+```bash
+python find_team.py
+```
 
-- **Focus on recent form only**: Set `FETCH_RECENT_MATCHES = True` and `FETCH_H2H_MATCHES = False`
-  - This will only analyze recent team performance
-  - Useful when teams haven't met recently or are from different leagues
-
-- **Use both data sources**: Set both to `True` (default)
-  - This provides the most comprehensive prediction
-  - Combines recent form with head-to-head history
+The utility will allow you to search for teams and provide their IDs for use in `config.py`.
 
 ## Usage
 
@@ -74,59 +70,68 @@ python main.py
 The program will:
 1. Fetch data based on your configuration settings
 2. Calculate statistics from the specified data sources
-3. Display a detailed prediction with probability table
-4. Cache results to improve performance on subsequent runs
+3. Adjust predictions based on venue (home/away or neutral)
+4. Display a detailed prediction with probability table
+5. Cache results to improve performance on subsequent runs
+
+## Neutral Venue Predictions
+
+When `IS_NEUTRAL_VENUE = True`, the prediction model:
+
+1. Uses actual neutral venue data when available
+2. Blends home and away performance statistics
+3. Adjusts team form weighting appropriately
+4. Removes home field advantage
+5. Applies head-to-head neutral venue history if available
 
 ## Caching System
 
-The program now includes a caching system that:
+The program includes a caching system that:
 
 1. Saves API responses to a local `.cache` directory
-2. Reuses cached data for 24 hours before refreshing
+2. Reuses cached data for 12 hours before refreshing
 3. Significantly reduces API calls and speeds up repeat predictions
 
 ## Sample Output
 
 ```
-Predicting match: real madrid (Home) vs barcelona (Away)
+Predicting match at neutral venue: Real Madrid vs Barcelona
 ======================================================================
-Using configuration from config.py
-Data fetching settings:
-  - Recent matches: Enabled (max: 20)
-  - Head-to-head matches: Enabled (max: 10)
+Using enhanced prediction model with recency-weighted stats
+Venue setting: Neutral venue
 Loading data and calculating predictions...
-Using cached data: Found 20 recent matches for real madrid
-Using cached data: Found 20 recent matches for barcelona
-Using cached data: Found 46 head-to-head matches between real madrid and barcelona
-Expected goals - real madrid: 2.31, barcelona: 1.86
+Using cached data: Found 20 recent matches for Real Madrid
+Using cached data: Found 20 recent matches for Barcelona
+Using cached data: Found 8 head-to-head matches between Real Madrid and Barcelona
+Expected goals - Real Madrid: 1.82, Barcelona: 1.65
 
 Match Prediction Results:
 ======================================================================
-real madrid vs barcelona
-Expected goals: 2.31 - 1.86
-Most likely total goals: 4
+Real Madrid vs Barcelona (Neutral Venue)
+Expected goals: 1.82 - 1.65
+Most likely score: 2-1
+Most likely total goals: 3
 
 ...
 ```
 
-## How to Add New Teams
+## How It Works
 
-If the team you want isn't in the TEAM_IDS dictionary, you can add it:
+The prediction model uses several factors to estimate match outcomes:
 
-1. First try searching for it in the existing list (in config.py)
-2. If it's not there, you can find the team ID using the find_team.py utility:
+1. **Recency-weighted team performance** - gives more weight to recent matches
+2. **Competition importance** - prioritizes data from important competitions
+3. **Head-to-head history** - considers previous meetings between the teams
+4. **Recent form** - weights the most recent 5 matches for each team
+5. **Venue analysis** - adjusts for home/away advantage or neutral venues
+6. **Poisson distribution** - calculates goal probability distributions
 
-```bash
-python find_team.py
-```
-
-Then add the team to the TEAM_IDS dictionary in config.py.
+For neutral venue matches, the model:
+- Uses actual neutral venue statistics when available
+- Blends home/away performance data (weighted toward away performance)
+- Utilizes neutral venue head-to-head data when available
+- Removes the standard home field advantage
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- [football-data.org](https://www.football-data.org/) for the API service
-- Poisson distribution model based on academic research on soccer prediction
+This project
