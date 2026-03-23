@@ -124,13 +124,22 @@ The prediction model uses several factors to estimate match outcomes:
 3. **Head-to-head history** - considers previous meetings between the teams
 4. **Recent form** - weights the most recent 5 matches for each team
 5. **Venue analysis** - adjusts for home/away advantage or neutral venues
-6. **Poisson distribution** - calculates goal probability distributions
+6. **Reliability-weighted attack/defense model** - blends overall and venue-specific rates based on sample size
+7. **Joint score distribution** - uses a Dixon-Coles-style low-score adjustment before aggregating score and total-goal probabilities
 
 For neutral venue matches, the model:
 - Uses actual neutral venue statistics when available
 - Blends home/away performance data (weighted toward away performance)
 - Utilizes neutral venue head-to-head data when available
 - Removes the standard home field advantage
+
+## Running Tests
+
+Run the built-in unit tests with:
+
+```bash
+python -m unittest tests/test_model.py
+```
 
 ## License
 
